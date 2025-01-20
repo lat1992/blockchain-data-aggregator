@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:alpine
+    container_name: clickhouse-server
+    ports:
+      - "8123:8123" # HTTP interface
+      - "9000:9000" # Native interface
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_config:/etc/clickhouse-server/
+  aggregator:
+    image: blockchain-data-aggregator
+    depends_on:
+      - clickhouse
