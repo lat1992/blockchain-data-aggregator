@@ -11,6 +11,8 @@ import (
 )
 
 type coinGeckoAPI interface {
+	GetTokenID(token string) string
+	GetPrice(symbol, date string) (float64, error)
 }
 
 type Client struct {
@@ -32,6 +34,23 @@ func New(url, apiKey string) *Client {
 	}
 }
 
+func (c *Client) buildAndSendRequest(endpoint string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Add("accept", "application/json")
+	req.Header.Add("x-cg-demo-api-key", c.apiKey)
+
+	res, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get token ids from coingecko: %w", err)
+	}
+
+	return res, nil
+}
+
 func (c *Client) InitTokenIDs() error {
 	response, err := c.getTokenIDs()
 	if err != nil {
@@ -43,28 +62,23 @@ func (c *Client) InitTokenIDs() error {
 	return nil
 }
 
-type CoinGeckoCoinsListResponse struct {
+type coinGeckoCoinsListResponse struct {
 	ID     string `json:"id"`
 	Symbol string `json:"symbol"`
 }
 
-func (c *Client) getTokenIDs() ([]CoinGeckoCoinsListResponse, error) {
-	req, _ := http.NewRequest("GET", c.url+"/coins/list", nil)
-
-	req.Header.Add("accept", "application/json")
-	// req.Header.Add("x-cg-demo-api-key", c.apiKey)
-
-	res, err := http.DefaultClient.Do(req)
+func (c *Client) getTokenIDs() ([]coinGeckoCoinsListResponse, error) {
+	res, err := c.buildAndSendRequest(c.url + "/coins/list")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get token ids from coingecko: %w", err)
 	}
-
 	defer func() {
 		if err := res.Body.Close(); err != nil {
 			slog.Error("failed to close response body", "err", err)
 		}
 	}()
-	var result []CoinGeckoCoinsListResponse
+
+	var result []coinGeckoCoinsListResponse
 	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response body: %w", err)
 	}
@@ -80,11 +94,53 @@ func (c *Client) GetTokenID(symbol string) string {
 	return ""
 }
 
-func (c *Client) GetPrice(coin string) (float64, error) {
-	price, exist := c.priceCache.Load(coin)
+func (c *Client) GetPrice(symbol, date string) (float64, error) {
+	key := symbol + "-" + date
+	price, exist := c.priceCache.Load(key)
 	if exist {
 		return price.(float64), nil
 	}
+	result, err := c.getPriceFromSource(symbol, date)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get price from source: %w", err)
+	}
+	c.priceCache.Store(key, result)
+	return result, nil
+}
 
-	return 0, nil
+type coinGeckoCoinsHistoryResponse struct {
+	MarketData struct {
+		CurrentPrice struct {
+			USD float64 `json:"usd"`
+		} `json:"current_price"`
+	} `json:"market_data"`
+}
+
+func (c *Client) getPriceFromSource(symbol, date string) (float64, error) {
+	id := c.GetTokenID(symbol)
+	if id == "" {
+		return 0, fmt.Errorf("id not found with token symbol: %s", symbol)
+	}
+
+	_, err := time.Parse("02-01-2006", date)
+	if err != nil {
+		return 0, fmt.Errorf("date format not valid: %s", date)
+	}
+
+	res, err := c.buildAndSendRequest(c.url + "/coins/" + id + "/history?date=" + date + "&localization=false")
+	if err != nil {
+		return 0, fmt.Errorf("failed to get token price from coingecko: %w", err)
+	}
+	defer func() {
+		if err := res.Body.Close(); err != nil {
+			slog.Error("failed to close response body", "err", err)
+		}
+	}()
+
+	var result coinGeckoCoinsHistoryResponse
+	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+		return 0, fmt.Errorf("failed to decode response body: %w", err)
+	}
+
+	return result.MarketData.CurrentPrice.USD, nil
 }
