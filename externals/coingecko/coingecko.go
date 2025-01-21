@@ -10,11 +10,6 @@ import (
 	"time"
 )
 
-type coinGeckoAPI interface {
-	GetTokenID(token string) string
-	GetPrice(symbol, date string) (float64, error)
-}
-
 type Client struct {
 	httpClient *http.Client
 	url        string
@@ -119,12 +114,14 @@ type coinGeckoCoinsHistoryResponse struct {
 func (c *Client) getPriceFromSource(symbol, date string) (float64, error) {
 	id := c.GetTokenID(symbol)
 	if id == "" {
-		return 0, fmt.Errorf("id not found with token symbol: %s", symbol)
+		slog.Error("id not found with token symbol", "symbol", symbol)
+		return 0, nil
 	}
 
 	_, err := time.Parse("02-01-2006", date)
 	if err != nil {
-		return 0, fmt.Errorf("date format not valid: %s", date)
+		slog.Error("date format not valid", "date", date)
+		return 0, nil
 	}
 
 	res, err := c.buildAndSendRequest(c.url + "/coins/" + id + "/history?date=" + date + "&localization=false")

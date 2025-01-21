@@ -13,6 +13,10 @@ RUN make
 
 FROM scratch
 
-COPY --from=0 /app/build/blockchain-data-aggregator /bin/blockchain-data-aggregator
+ADD . /app/
+WORKDIR /app
+
+COPY --from=0 /app/build/blockchain-data-aggregator /app/blockchain-data-aggregator
+COPY --from=0 /app/datas /app/datas
 
 CMD ["/bin/blockchain-data-aggregator"]

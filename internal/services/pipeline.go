@@ -1,7 +1,11 @@
 package services
 
-type pipelineService interface {
+type Pipeline struct {
 }
 
-type pipeline struct {
+func NewPipeline() *Pipeline {
+	return &Pipeline{}
+}
+
+func (p *Pipeline) Run() {
 }

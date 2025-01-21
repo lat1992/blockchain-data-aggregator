@@ -37,13 +37,13 @@ func TestGetTokenPrice(t *testing.T) {
 			name:   "invalid symbol",
 			symbol: "invalid",
 			date:   "01-01-2025",
-			err:    assert.AnError,
+			price:  0,
 		},
 		{
 			name:   "invalid date",
 			symbol: "SFL",
 			date:   "invalid",
-			err:    assert.AnError,
+			price:  0,
 		},
 	}
 
