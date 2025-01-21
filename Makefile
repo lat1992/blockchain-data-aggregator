@@ -42,9 +42,6 @@ docker-compose	:
 docker-build	:
 	                $(DOCKER) build -t $(NAME) .
 
-docker-run      :
-	                $(DOCKER) run -d --name $(NAME) -p 8080:8080 $(NAME)
-
 install			:	docker-build docker-compose
 
 rebuild			:	clean build

@@ -70,7 +70,7 @@ func (p *Pipeline) Run() {
 }
 
 type marketStatCache struct {
-	mutex sync.RWMutex
+	mutex sync.Mutex
 	stats map[string]internal.MarketStat
 }
 
@@ -92,9 +92,9 @@ func (p *Pipeline) GetMarketStats(record internal.Record) error {
 
 	var pID, num uint64
 	var vol float64
-	p.marketStatsCache.mutex.RLock()
+	p.marketStatsCache.mutex.Lock()
+	defer p.marketStatsCache.mutex.Unlock()
 	ms, exist := p.marketStatsCache.stats[dateString+"+"+record.ProjectID]
-	p.marketStatsCache.mutex.RUnlock()
 	if exist {
 		pID = ms.ProjectID
 		num = ms.NumTx
@@ -123,14 +123,13 @@ func (p *Pipeline) GetMarketStats(record internal.Record) error {
 	if err != nil {
 		return fmt.Errorf("failed to get price: %w", err)
 	}
+	num = num + 1
 	vol = vol + (price * amount)
 
-	p.marketStatsCache.mutex.Lock()
-	defer p.marketStatsCache.mutex.Unlock()
 	p.marketStatsCache.stats[dateString+"+"+record.ProjectID] = internal.MarketStat{
 		Date:        date,
 		ProjectID:   pID,
-		NumTx:       num + 1,
+		NumTx:       num,
 		TotalVolume: vol,
 	}
 
