@@ -4,7 +4,7 @@ BUILD_NAME		=	$(NAME)
 
 BUILD_DIR		=	./build
 
-CMD_DIR			=	./cmd
+CMD_DIR			=	./cmd/aggregator
 
 GO				=	go
 

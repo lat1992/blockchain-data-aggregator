@@ -7,19 +7,19 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/lat1992/blockchain-data-aggregator/externals"
+	"github.com/lat1992/blockchain-data-aggregator/internal"
 )
 
 type DataGetter struct {
 	path          string
-	recordChannel chan externals.Record
+	recordChannel chan internal.Record
 	endChannel    chan bool
 }
 
 func New(path string) *DataGetter {
 	return &DataGetter{
 		path:          path,
-		recordChannel: make(chan externals.Record),
+		recordChannel: make(chan internal.Record),
 		endChannel:    make(chan bool),
 	}
 }
@@ -67,7 +67,7 @@ func (g *DataGetter) readDataFromFile(fileName string) error {
 		if err != nil {
 			return fmt.Errorf("failed to read record: %w", err)
 		}
-		g.recordChannel <- externals.Record{
+		g.recordChannel <- internal.Record{
 			Timestamp: record[header["ts"]],
 			Event:     record[header["event"]],
 			ProjectId: record[header["project_id"]],
@@ -92,7 +92,7 @@ func (g *DataGetter) getHeader(parser *csv.Reader) (map[string]int, error) {
 	return header, nil
 }
 
-func (g *DataGetter) Channel() chan externals.Record {
+func (g *DataGetter) Channel() chan internal.Record {
 	return g.recordChannel
 }
 

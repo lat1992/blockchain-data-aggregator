@@ -1,6 +1,9 @@
 package services
 
-import "github.com/lat1992/blockchain-data-aggregator/externals"
+import (
+	"github.com/lat1992/blockchain-data-aggregator/externals"
+	"github.com/lat1992/blockchain-data-aggregator/internal"
+)
 
 type Pipeline struct {
 	coingecko  externals.CoinGeckoAPI
@@ -9,6 +12,7 @@ type Pipeline struct {
 }
 
 func NewPipeline(cg externals.CoinGeckoAPI, dg externals.DataGetterService, ch externals.Database) *Pipeline {
+	cg.InitTokenIDs()
 	return &Pipeline{
 		coingecko:  cg,
 		dataGetter: dg,
@@ -17,4 +21,20 @@ func NewPipeline(cg externals.CoinGeckoAPI, dg externals.DataGetterService, ch e
 }
 
 func (p *Pipeline) Run() {
+	go p.dataGetter.ReadDataFromFiles()
+
+	var stats []internal.MarketStat
+	for {
+		select {
+		case record := <-p.dataGetter.Channel():
+			stats = append(stats, p.GetMarketStats(record))
+		case <-p.dataGetter.EndChannel():
+			p.clickhosue.InsertMarket(stats)
+			return
+		}
+	}
+}
+
+func (p *Pipeline) GetMarketStats(record internal.Record) internal.MarketStat {
+	return internal.MarketStat{}
 }

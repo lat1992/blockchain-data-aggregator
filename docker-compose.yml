@@ -1,15 +1,27 @@
-version: "3.9"
 services:
   clickhouse:
-    image: clickhouse/clickhouse-server:alpine
+    image: clickhouse/clickhouse-server
     container_name: clickhouse-server
-    ports:
-      - "8123:8123" # HTTP interface
-      - "9000:9000" # Native interface
+    user: "101:101"
+    hostname: clickhouse
     volumes:
-      - clickhouse_data:/var/lib/clickhouse
-      - clickhouse_config:/etc/clickhouse-server/
+      - ./clickhouse/config.d/config.xml:/etc/clickhouse-server/config.d/config.xml
+      - ./clickhouse/users.d/users.xml:/etc/clickhouse-server/users.d/users.xml
+      - ./scripts/clickhouse:/docker-entrypoint-initdb.d
+    ports:
+      - "8123:8123"
+      - "9000:9000"
   aggregator:
     image: blockchain-data-aggregator
+    container_name: blockchain-data-aggregator
     depends_on:
-      - clickhouse
+      clickhouse:
+        condition: service_started
+    environment:
+      - COINGECKO_URL=https://api.coingecko.com/api/v3
+      - COINGECKO_API_KEY=CG-GKvKPioBeTZQzkgGz4AKwgEe
+      - DATA_PATH=datas
+      - CLICKHOUSE_HOSTNAME=clickhouse:9000
+      - CLICKHOUSE_DATABASE=default
+      - CLICKHOUSE_USERNAME=default
+      - CLICKHOUSE_PASSWORD=

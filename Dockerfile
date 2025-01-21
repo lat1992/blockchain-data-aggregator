@@ -1,4 +1,4 @@
-FROM alpine:3
+FROM alpine:3 AS build
 
 RUN apk add --no-cache make go
 
@@ -11,12 +11,12 @@ WORKDIR /app
 
 RUN make
 
-FROM scratch
+FROM alpine:3
 
 ADD . /app/
 WORKDIR /app
 
-COPY --from=0 /app/build/blockchain-data-aggregator /app/blockchain-data-aggregator
-COPY --from=0 /app/datas /app/datas
+COPY --from=build /app/build/blockchain-data-aggregator /app/
+COPY --from=build /app/datas /app/
 
-CMD ["/bin/blockchain-data-aggregator"]
+CMD ["/app/blockchain-data-aggregator"]
