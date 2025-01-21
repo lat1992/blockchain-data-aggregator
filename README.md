@@ -61,6 +61,10 @@ CLICKHOUSE_PASSWORD=
 GOROUTINE_NUM=2
 ```
 
+DATA_PATH is the path to the directory containing the CSV files. The default value is "datas".
+
+GOROUTINE_NUM is the number of concurrent goroutines used for processing data. The default value is 2.
+
 ## Process Flow
 
 1. **Initialization**
