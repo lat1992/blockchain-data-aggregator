@@ -61,6 +61,53 @@ CLICKHOUSE_PASSWORD=
 GOROUTINE_NUM=2
 ```
 
+## Process Flow
+
+1. **Initialization**
+   - Create a new pipeline instance with dependencies
+   - Initialize CoinGecko token IDs
+   - Set up market statistics cache
+
+2. **Pipeline Execution**
+   ```go
+   func (p *Pipeline) Run()
+   ```
+   - Starts concurrent processing using multiple goroutines
+   - One goroutine reads data from files
+   - Multiple goroutines process records simultaneously
+
+3. **Data Processing**
+   - Each record contains:
+     - Timestamp
+     - Project ID
+     - Currency properties (symbol)
+     - Numerical values (amount)
+
+4. **Market Stats Calculation**
+   ```go
+   func (p *Pipeline) GetMarketStats(record internal.Record)
+   ```
+   - Parse timestamp into date format
+   - Extract currency symbol and amount
+   - Fetch price data from CoinGecko
+   - Calculate and aggregate statistics:
+     - Number of transactions
+     - Total volume (price * amount)
+
+5. **Data Aggregation**
+   - Stats are cached in memory using a thread-safe map
+   - Key format: "DD-MM-YYYY-ProjectID"
+   - Aggregates multiple transactions for same project/date
+
+6. **Final Storage**
+   - Processed data is bulk inserted into ClickHouse
+   - Cached stats are cleared after insertion
+
+## Concurrency Management
+- Uses sync.WaitGroup for goroutine synchronization
+- Mutex protection for cache updates
+- Channel-based communication between components
+
 ## Project Structure
 
 ```
