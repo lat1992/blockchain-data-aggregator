@@ -36,7 +36,7 @@ func TestReadDataFromFiles(t *testing.T) {
 	}()
 
 	var wg sync.WaitGroup
-	g := New(baseDir)
+	g := New(baseDir, 1)
 	wg.Add(2)
 
 	count := 0

@@ -1,0 +1,13 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server
+    container_name: clickhouse-server
+    user: "101:101"
+    hostname: clickhouse
+    volumes:
+      - ./clickhouse/config.d/config.xml:/etc/clickhouse-server/config.d/config.xml
+      - ./clickhouse/users.d/users.xml:/etc/clickhouse-server/users.d/users.xml
+      - ./scripts/clickhouse:/docker-entrypoint-initdb.d
+    ports:
+      - "8123:8123"
+      - "9000:9000"

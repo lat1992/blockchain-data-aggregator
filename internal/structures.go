@@ -1,16 +1,18 @@
 package internal
 
+import "time"
+
 type Record struct {
 	Timestamp string
 	Event     string
-	ProjectId string
+	ProjectID string
 	Props     string
 	Nums      string
 }
 
 type MarketStat struct {
-	Date        string
-	ProjectId   uint64
+	Date        time.Time
+	ProjectID   uint64
 	NumTx       uint64
 	TotalVolume float64
 }

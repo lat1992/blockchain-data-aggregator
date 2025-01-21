@@ -17,7 +17,7 @@ func main() {
 		return
 	}
 
-	dg := dataGetter.New(viper.GetString("DATA_PATH"))
+	dg := dataGetter.New(viper.GetString("DATA_PATH"), viper.GetInt("GOROUTINE_NUM"))
 	cg := coingecko.New(viper.GetString("COINGECKO_URL"), viper.GetString("COINGECKO_API_KEY"))
 
 	ch, err := clickhouse.New(viper.GetString("CLICKHOUSE_HOSTNAME"), viper.GetString("CLICKHOUSE_DATABASE"), viper.GetString("CLICKHOUSE_USERNAME"), viper.GetString("CLICKHOUSE_PASSWORD"))
@@ -26,6 +26,6 @@ func main() {
 		return
 	}
 
-	pipeline := services.NewPipeline(cg, dg, ch)
+	pipeline := services.NewPipeline(cg, dg, ch, viper.GetInt("GOROUTINE_NUM"))
 	pipeline.Run()
 }

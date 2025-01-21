@@ -14,13 +14,15 @@ type DataGetter struct {
 	path          string
 	recordChannel chan internal.Record
 	endChannel    chan bool
+	goroutineNum  int
 }
 
-func New(path string) *DataGetter {
+func New(path string, gNum int) *DataGetter {
 	return &DataGetter{
 		path:          path,
-		recordChannel: make(chan internal.Record),
+		recordChannel: make(chan internal.Record, gNum*2),
 		endChannel:    make(chan bool),
+		goroutineNum:  gNum,
 	}
 }
 
@@ -37,7 +39,9 @@ func (g *DataGetter) ReadDataFromFiles() error {
 	for _, f := range files {
 		g.readDataFromFile(g.path + "/" + f.Name())
 	}
-	g.endChannel <- true
+	for i := 0; i < g.goroutineNum; i++ {
+		g.endChannel <- true
+	}
 	return nil
 }
 
@@ -70,7 +74,7 @@ func (g *DataGetter) readDataFromFile(fileName string) error {
 		g.recordChannel <- internal.Record{
 			Timestamp: record[header["ts"]],
 			Event:     record[header["event"]],
-			ProjectId: record[header["project_id"]],
+			ProjectID: record[header["project_id"]],
 			Props:     record[header["props"]],
 			Nums:      record[header["nums"]],
 		}

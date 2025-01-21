@@ -15,5 +15,5 @@ type CoinGeckoAPI interface {
 }
 
 type Database interface {
-	InsertMarket(stats []internal.MarketStat) error
+	InsertMarket(stats map[string]internal.MarketStat) error
 }

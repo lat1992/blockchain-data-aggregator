@@ -77,14 +77,14 @@ func connect(host, database, user, password string) (driver.Conn, error) {
 	return conn, nil
 }
 
-func (c *ClickHouse) InsertMarket(stats []internal.MarketStat) error {
+func (c *ClickHouse) InsertMarket(stats map[string]internal.MarketStat) error {
 	ctx := context.Background()
 	batch, err := c.conn.PrepareBatch(ctx, "INSERT INTO market_stats")
 	if err != nil {
 		return err
 	}
 	for _, stat := range stats {
-		err := batch.Append(stat.Date, stat.ProjectId, stat.NumTx, stat.TotalVolume)
+		err := batch.Append(stat.Date, stat.ProjectID, stat.NumTx, stat.TotalVolume)
 		if err != nil {
 			return fmt.Errorf("error appending to batch: %w", err)
 		}

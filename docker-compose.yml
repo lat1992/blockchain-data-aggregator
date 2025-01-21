@@ -25,3 +25,4 @@ services:
       - CLICKHOUSE_DATABASE=default
       - CLICKHOUSE_USERNAME=default
       - CLICKHOUSE_PASSWORD=
+      - GOROUTINE_NUM=2
