@@ -36,7 +36,7 @@ func TestReadDataFromFiles(t *testing.T) {
 	}()
 
 	var wg sync.WaitGroup
-	g := NewDataGetter()
+	g := New(baseDir)
 	wg.Add(2)
 
 	count := 0
@@ -55,7 +55,7 @@ func TestReadDataFromFiles(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		if err := g.ReadDataFromFiles(baseDir); err != nil {
+		if err := g.ReadDataFromFiles(); err != nil {
 			t.Errorf("failed to read data from files: %v", err)
 		}
 	}()

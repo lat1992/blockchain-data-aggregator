@@ -11,19 +11,21 @@ import (
 )
 
 type DataGetter struct {
+	path          string
 	recordChannel chan externals.Record
 	endChannel    chan bool
 }
 
-func NewDataGetter() *DataGetter {
+func New(path string) *DataGetter {
 	return &DataGetter{
+		path:          path,
 		recordChannel: make(chan externals.Record),
 		endChannel:    make(chan bool),
 	}
 }
 
-func (g *DataGetter) ReadDataFromFiles(path string) error {
-	p, err := os.Open(path)
+func (g *DataGetter) ReadDataFromFiles() error {
+	p, err := os.Open(g.path)
 	if err != nil {
 		return fmt.Errorf("failed to open path: %w", err)
 	}
@@ -33,7 +35,7 @@ func (g *DataGetter) ReadDataFromFiles(path string) error {
 	}
 
 	for _, f := range files {
-		g.readDataFromFile(path + "/" + f.Name())
+		g.readDataFromFile(g.path + "/" + f.Name())
 	}
 	g.endChannel <- true
 	return nil
