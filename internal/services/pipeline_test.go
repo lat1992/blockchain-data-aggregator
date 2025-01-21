@@ -70,6 +70,7 @@ func TestPipeline_GetMarketStats(t *testing.T) {
 		name   string
 		record internal.Record
 		setup  func(*mocks.CoinGeckoAPI)
+		stats  map[string]internal.MarketStat
 		err    error
 	}{
 		{
@@ -83,23 +84,20 @@ func TestPipeline_GetMarketStats(t *testing.T) {
 			setup: func(mockCG *mocks.CoinGeckoAPI) {
 				mockCG.On("GetPrice", "BTC", "01-01-2024").Return(50000.0, nil)
 			},
+			stats: map[string]internal.MarketStat{
+				"01-01-2024-1234": {
+					Date:        time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+					ProjectID:   1234,
+					NumTx:       1,
+					TotalVolume: 75000.0, // 1.5 * 50000.0
+				},
+			},
 		},
 		{
 			name: "invalid timestamp",
 			record: internal.Record{
-				Timestamp: "invalid",
+				Timestamp: "invalid-timestamp",
 				ProjectID: "1234",
-				Props:     `{"currencySymbol":"BTC"}`,
-				Nums:      `{"currencyValueDecimal":"1.5"}`,
-			},
-			setup: func(mockCG *mocks.CoinGeckoAPI) {},
-			err:   assert.AnError,
-		},
-		{
-			name: "invalid project ID",
-			record: internal.Record{
-				Timestamp: "2024-01-01 12:00:00.000",
-				ProjectID: "invalid",
 				Props:     `{"currencySymbol":"BTC"}`,
 				Nums:      `{"currencyValueDecimal":"1.5"}`,
 			},
@@ -128,37 +126,85 @@ func TestPipeline_GetMarketStats(t *testing.T) {
 			setup: func(mockCG *mocks.CoinGeckoAPI) {},
 			err:   assert.AnError,
 		},
+		{
+			name: "invalid currency value",
+			record: internal.Record{
+				Timestamp: "2024-01-01 12:00:00.000",
+				ProjectID: "1234",
+				Props:     `{"currencySymbol":"BTC"}`,
+				Nums:      `{"currencyValueDecimal":"invalid"}`,
+			},
+			setup: func(mockCG *mocks.CoinGeckoAPI) {},
+			err:   assert.AnError,
+		},
+		{
+			name: "coingecko error",
+			record: internal.Record{
+				Timestamp: "2024-01-01 12:00:00.000",
+				ProjectID: "1234",
+				Props:     `{"currencySymbol":"BTC"}`,
+				Nums:      `{"currencyValueDecimal":"1.5"}`,
+			},
+			setup: func(mockCG *mocks.CoinGeckoAPI) {
+				mockCG.On("GetPrice", "BTC", "01-01-2024").Return(0.0, fmt.Errorf("coingecko error"))
+			},
+			err: assert.AnError,
+		},
+		{
+			name: "multiple transactions for same project and date",
+			record: internal.Record{
+				Timestamp: "2024-01-01 12:00:00.000",
+				ProjectID: "1234",
+				Props:     `{"currencySymbol":"BTC"}`,
+				Nums:      `{"currencyValueDecimal":"1.5"}`,
+			},
+			setup: func(mockCG *mocks.CoinGeckoAPI) {
+				mockCG.On("GetPrice", "BTC", "01-01-2024").Return(50000.0, nil)
+			},
+			stats: map[string]internal.MarketStat{
+				"01-01-2024-1234": {
+					Date:        time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+					ProjectID:   1234,
+					NumTx:       2,
+					TotalVolume: 150000.0, // (1.5 * 50000.0) * 2
+				},
+			},
+		},
 	}
 
-	for _, tt := range testCases {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
 			mockCG := new(mocks.CoinGeckoAPI)
 			mockDG := new(mocks.DataGetterService)
 			mockDB := new(mocks.Database)
 
 			mockCG.On("InitTokenIDs").Return(nil)
-			tt.setup(mockCG)
+			tc.setup(mockCG)
 
 			pipeline := NewPipeline(mockCG, mockDG, mockDB, 1)
-			err := pipeline.GetMarketStats(tt.record)
 
-			if tt.err != nil {
+			if tc.name == "multiple transactions for same project and date" {
+				err := pipeline.GetMarketStats(tc.record)
+				assert.NoError(t, err)
+			}
+
+			err := pipeline.GetMarketStats(tc.record)
+
+			if tc.err != nil {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-
-				date, _ := time.Parse(time.DateTime+".000", tt.record.Timestamp)
-				y, m, d := date.Date()
-				dateString := fmt.Sprintf("%02d-%02d-%d", d, m, y)
-
-				stat, exists := pipeline.marketStatsCache.stats[dateString+"+"+tt.record.ProjectID]
-				assert.True(t, exists)
-				assert.Equal(t, date, stat.Date)
-				assert.Equal(t, uint64(1234), stat.ProjectID)
-				assert.Equal(t, uint64(1), stat.NumTx)
-				assert.Equal(t, 75000.0, stat.TotalVolume)
+				for key, expectedStat := range tc.stats {
+					actualStat, exists := pipeline.marketStatsCache.stats[key]
+					assert.True(t, exists)
+					assert.Equal(t, expectedStat.Date.Unix(), actualStat.Date.Unix())
+					assert.Equal(t, expectedStat.ProjectID, actualStat.ProjectID)
+					assert.Equal(t, expectedStat.NumTx, actualStat.NumTx)
+					assert.Equal(t, expectedStat.TotalVolume, actualStat.TotalVolume)
+				}
 			}
 
+			// Verify mock expectations
 			mockCG.AssertExpectations(t)
 		})
 	}

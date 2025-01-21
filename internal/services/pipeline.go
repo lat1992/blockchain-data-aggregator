@@ -17,7 +17,7 @@ type Pipeline struct {
 	dataGetter       externals.DataGetterService
 	clickhosue       externals.Database
 	goroutineNum     int
-	marketStatsCache marketStatCache
+	marketStatsCache *marketStatCache
 }
 
 func NewPipeline(cg externals.CoinGeckoAPI, dg externals.DataGetterService, ch externals.Database, gNum int) *Pipeline {
@@ -27,7 +27,7 @@ func NewPipeline(cg externals.CoinGeckoAPI, dg externals.DataGetterService, ch e
 		dataGetter:   dg,
 		clickhosue:   ch,
 		goroutineNum: gNum,
-		marketStatsCache: marketStatCache{
+		marketStatsCache: &marketStatCache{
 			stats: make(map[string]internal.MarketStat),
 		},
 	}
@@ -90,22 +90,6 @@ func (p *Pipeline) GetMarketStats(record internal.Record) error {
 	y, m, d := date.Date()
 	dateString := fmt.Sprintf("%02d-%02d-%d", d, m, y)
 
-	var pID, num uint64
-	var vol float64
-	p.marketStatsCache.mutex.Lock()
-	defer p.marketStatsCache.mutex.Unlock()
-	ms, exist := p.marketStatsCache.stats[dateString+"+"+record.ProjectID]
-	if exist {
-		pID = ms.ProjectID
-		num = ms.NumTx
-		vol = ms.TotalVolume
-	} else {
-		pID, err = strconv.ParseUint(record.ProjectID, 10, 64)
-		if err != nil {
-			return fmt.Errorf("failed to parse project id: %w", err)
-		}
-	}
-
 	var props propsSchema
 	if err := json.Unmarshal([]byte(record.Props), &props); err != nil {
 		return fmt.Errorf("failed to unmarshal props: %w", err)
@@ -123,15 +107,36 @@ func (p *Pipeline) GetMarketStats(record internal.Record) error {
 	if err != nil {
 		return fmt.Errorf("failed to get price: %w", err)
 	}
-	num = num + 1
-	vol = vol + (price * amount)
 
-	p.marketStatsCache.stats[dateString+"+"+record.ProjectID] = internal.MarketStat{
-		Date:        date,
-		ProjectID:   pID,
-		NumTx:       num,
-		TotalVolume: vol,
+	key := dateString + "-" + record.ProjectID
+
+	p.marketStatsCache.Update(key, record.ProjectID, date, price, amount)
+	return nil
+}
+
+func (c *marketStatCache) Update(key, projectID string, date time.Time, price, amount float64) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	ms, exist := c.stats[key]
+	if exist {
+		c.stats[key] = internal.MarketStat{
+			Date:        date,
+			ProjectID:   ms.ProjectID,
+			NumTx:       ms.NumTx + 1,
+			TotalVolume: ms.TotalVolume + (price * amount),
+		}
+	} else {
+		pID, err := strconv.ParseUint(projectID, 10, 64)
+		if err != nil {
+			return fmt.Errorf("failed to parse project id: %w", err)
+		}
+		c.stats[key] = internal.MarketStat{
+			Date:        date,
+			ProjectID:   pID,
+			NumTx:       1,
+			TotalVolume: price * amount,
+		}
 	}
-
 	return nil
 }
